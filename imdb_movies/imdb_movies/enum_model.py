@@ -1,13 +1,22 @@
 import os
 from enum import Enum
+from pathlib import Path
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
+class ConfigDB(Enum):
+    DB = os.getenv("DB")
+    USERDB = os.getenv("USERDB")
+    PASSWORDDB = os.getenv("PASSWORDDB")
+    NAME_SERVICEDB = os.getenv("NAME_SERVICEDB")
+    PORT = os.getenv("PORT")
+    NAMEDB = os.getenv("NAMEDB")
+    DATABASE_URL = f"{DB}://{USERDB}:{PASSWORDDB}@{NAME_SERVICEDB}:{PORT}/{NAMEDB}"
 
 class ConfigImdb(Enum):
-    DATA_PATH = os.getenv("PYTHONPATH", "./data")
+    BASE_PATH = Path(__file__).resolve().parent
+    DATA_PATH = os.getenv("PYTHONPATH", str(BASE_PATH / "data"))
     output_document_name_page = 'movies_info.json'
     output_document_name_refine = 'movies_info_refine.csv'
     

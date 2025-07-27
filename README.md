@@ -116,7 +116,36 @@ Puedes levantar la base de datos y el servicio completo usando Docker.
 docker-compose -f docker-compose.db.yml up --build
 ```
 
-Aquí tienes el fragmento corregido y más claro para el `README.md`:
+Esto construirá y levantará el contenedor `imdb-movie-scraper-db-1` con PostgreSQL.
+
+---
+
+#### 2. Copiar el archivo `schema.sql` al contenedor:
+
+```bash
+docker cp PYTHONPATH/app/utils/schema.sql imdb-movie-scraper-db-1:/schema.sql
+```
+
+> Asegúrate de ajustar la ruta al archivo según tu estructura local, si es necesario.
+
+---
+
+#### 3. Acceder al contenedor:
+
+```bash
+docker exec -it imdb-movie-scraper-db-1 bash
+```
+
+---
+
+#### 4. Ejecutar el archivo `schema.sql` dentro del contenedor:
+
+```bash
+psql -h localhost -U user -d imdb -f schema.sql
+```
+
+> Reemplaza `user` y `imdb` por tu usuario y nombre de base de datos si son diferentes.
+> Si necesitas contraseña, te la pedirá (`password`, según tu `.env`).
 
 ---
 
