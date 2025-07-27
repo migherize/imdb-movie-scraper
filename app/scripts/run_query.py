@@ -1,9 +1,28 @@
 import os
 import csv
 import argparse
-from sql_analysis.db.database import SessionLocal
-from sql_analysis.queries.movies import get_top_movies_by_decade, get_standard_deviation_rating,get_metascore_and_imdb_rating_normalizado
-from sql_analysis.queries.actor import create_view_actor_movie, get_view_actor_movie
+import logging
+from pathlib import Path
+from app.db.database import SessionLocal
+from app.queries.movies import get_top_movies_by_decade, get_standard_deviation_rating,get_metascore_and_imdb_rating_normalizado
+from app.queries.actor import create_view_actor_movie, get_view_actor_movie
+
+# Configuración de logs
+log_path = Path("logs/app.log")
+log_path.parent.mkdir(parents=True, exist_ok=True)
+if not log_path.exists():
+    log_path.touch()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(log_path),
+        logging.StreamHandler()
+    ],
+)
+
+logger = logging.getLogger(__name__)
 
 QUERY_FUNCTIONS = {
     "get_top_movies_by_decade": get_top_movies_by_decade,
@@ -13,9 +32,10 @@ QUERY_FUNCTIONS = {
     "get_view_actor_movie": get_view_actor_movie,
 }
 
+
 def save_to_csv(data, filename):
     if not data:
-        print("No hay datos para guardar.")
+        logger.warning("No hay datos para guardar.")
         return
 
     os.makedirs("data", exist_ok=True)
@@ -28,7 +48,7 @@ def save_to_csv(data, filename):
         writer.writeheader()
         writer.writerows(data)
 
-    print(f"✅ Datos guardados en: {filepath}")
+    logger.info(f"✅ Datos guardados en: {filepath}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run predefined DB queries")
@@ -37,10 +57,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     action = args.action
 
+    logger.info(f"Ejecutando acción: {action}")
+
     if action not in QUERY_FUNCTIONS:
-        print(f"Acción '{action}' no válida. Opciones disponibles:")
+        logger.error(f"Acción '{action}' no válida. Opciones disponibles:")
         for key in QUERY_FUNCTIONS:
-            print(f" - {key}")
+            logger.error(f" - {key}")
         exit(1)
 
     try:
@@ -48,9 +70,9 @@ if __name__ == "__main__":
             result = QUERY_FUNCTIONS[action](db)
 
             if not result:
-                print(f"✅ Acción '{action}' ejecutada correctamente. No hay datos para mostrar.")
+                logger.info(f"✅ Acción '{action}' ejecutada correctamente. No hay datos para mostrar.")
             elif isinstance(result, str):
-                print(result)
+                logger.info(result)
             else:
                 data = []
                 for row in result:
@@ -59,10 +81,11 @@ if __name__ == "__main__":
                     else:
                         data.append(dict(row._mapping))
 
+                logger.info(f"{len(data)} filas obtenidas. Guardando en CSV...")
                 for row in data:
-                    print(row)
-
+                    logger.debug(row)
+                
                 save_to_csv(data, f"{action}.csv")
 
     except Exception as e:
-        print(f"Error ejecutando '{action}': {e}")
+        logger.exception(f"❌ Error ejecutando '{action}': {e}")

@@ -10,7 +10,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from sql_analysis.db.base import Base
+from app.db.base import Base
 from fastapi import FastAPI
 
 load_dotenv()

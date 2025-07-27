@@ -24,7 +24,7 @@ Para cada película se extrae:
 ```
 imdb_movie_scraper/
 ├── imdb_scraper
-├── sql_analysis
+├── app
 │   ├── main.py
 │   ├── db
 │   ├── models
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 
 ### 🛢️ **Base de datos PostgreSQL (modo opcional)**
 
-Si deseas usar PostgreSQL localmente (sin Docker), puedes crear la base de datos y sus tablas ejecutando el script `sql_analysis/utils/schema.sql` incluido en el proyecto.
+Si deseas usar PostgreSQL localmente (sin Docker), puedes crear la base de datos y sus tablas ejecutando el script `app/utils/schema.sql` incluido en el proyecto.
 
 #### ✅ Pasos:
 
@@ -90,7 +90,7 @@ Si deseas usar PostgreSQL localmente (sin Docker), puedes crear la base de datos
 3. **Ejecuta el script SQL para crear las tablas:**
 
    ```bash
-   psql -h localhost -U tu_usuario -d imdb -f sql_analysis/utils/schema.sql
+   psql -h localhost -U tu_usuario -d imdb -f app/utils/schema.sql
    ```
 
    > Reemplaza `tu_usuario` por tu nombre de usuario en PostgreSQL.
@@ -116,11 +116,19 @@ Puedes levantar la base de datos y el servicio completo usando Docker.
 docker-compose -f docker-compose.db.yml up --build
 ```
 
-#### 2. Levantar el servicio IMDB-MOVIE-SCRAPER:
+Aquí tienes el fragmento corregido y más claro para el `README.md`:
+
+---
+
+#### 2. 🔌 Levantar el servicio IMDB-MOVIE-SCRAPER (opcional)
+
+Si deseas levantar toda la aplicación con FastAPI (incluyendo la base de datos y la API), ejecuta:
 
 ```bash
 docker-compose -f docker-compose.yml up --build
 ```
+
+Luego, dirígete a la sección [🚀 Usar la API con FastAPI (opcional)](#-usar-la-api-con-fastapi-opcional) para más detalles.
 
 ---
 
@@ -174,11 +182,11 @@ Ejecuta los siguientes comandos desde la carpeta `scripts`:
 
 ```bash
 cd scripts
-python sql_analysis/scripts/run_query.py -a get_top_movies_by_decade
-python sql_analysis/scripts/run_query.py -a get_standard_deviation_rating
-python sql_analysis/scripts/run_query.py -a get_metascore_and_imdb_rating_normalizado
-python sql_analysis/scripts/run_query.py -a create_view_actor_movie
-python sql_analysis/scripts/run_query.py -a get_view_actor_movie
+python app/scripts/run_query.py -a get_top_movies_by_decade
+python app/scripts/run_query.py -a get_standard_deviation_rating
+python app/scripts/run_query.py -a get_metascore_and_imdb_rating_normalizado
+python app/scripts/run_query.py -a create_view_actor_movie
+python app/scripts/run_query.py -a get_view_actor_movie
 ```
 
 > **Nota:** cada query guarda automáticamente su resultado en la carpeta `data/` con el nombre: `<nombre_de_la_query>.csv`
@@ -293,7 +301,7 @@ Una vez poblada la base de datos, puedes consultar los datos fácilmente desde l
 
 1. **Ejecuta la aplicación:**
 ```
-uvicorn sql_analysis.main:app --reload
+uvicorn app.main:app --reload
 ```
 
 ### 🐳 Opción 2: Uso con Docker

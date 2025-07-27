@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  sql_analysis:
+    container_name: sql_analysis
+    restart: "always"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - 8080
+
+    volumes:
+      - "./:/app"
+      - "./data/:/app/data"
+      - "./logs/:/app/logs"
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      - PYTHONPATH=/app:$PYTHONPATH
+      - LOGS=/app/logs
+      - DATA=/app/data
+      - DB=postgresql
+      - NAMEDB=imdb
+      - USERDB=user
+      - PASSWORDDB=password
+      - PORT=5432
+      - NAME_SERVICEDB=db  # O "localhost" si estás ejecutando sin servicio de base de datos en Docker

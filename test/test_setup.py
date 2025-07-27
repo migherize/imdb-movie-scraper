@@ -1,7 +1,7 @@
 import os
 import pytest
 from sqlalchemy import text
-from sql_analysis.db.database import SessionLocal
+from app.db.database import SessionLocal
 
 REQUIRED_ENV_VARS = [
     "PYTHONPATH",
@@ -28,7 +28,6 @@ def test_database_connection():
     """
     try:
         db = SessionLocal()
-        print(  db.execute(text("SELECT * from movies LIMIT 1")))
         db.execute(text("SELECT * from movies LIMIT 1"))
     except Exception as e:
         pytest.fail(f"No se pudo conectar a la base de datos: {e}")

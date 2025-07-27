@@ -2,8 +2,8 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sql_analysis.db.database import init_db
-from sql_analysis.routers import movies
+from app.db.database import init_db
+from app.routers import movies
 
 app = FastAPI(
     title="IMDb Scraper API",
@@ -32,7 +32,7 @@ app.include_router(movies.router)
 
 if __name__ == "__main__":
     uvicorn.run(
-        "sql_analysis.main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

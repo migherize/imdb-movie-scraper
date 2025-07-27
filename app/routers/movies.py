@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
-from sql_analysis.db.database import get_db
-from sql_analysis.models.schemas import TopMovieBase, StdRatingBase, RatingNormalizadoBase, ActorBase
-from sql_analysis.queries.movies import get_top_movies_by_decade, get_standard_deviation_rating,get_metascore_and_imdb_rating_normalizado
-from sql_analysis.queries.actor import create_view_actor_movie, get_view_actor_movie
+from app.db.database import get_db
+from app.models.schemas import TopMovieBase, StdRatingBase, RatingNormalizadoBase, ActorBase
+from app.queries.movies import get_top_movies_by_decade, get_standard_deviation_rating,get_metascore_and_imdb_rating_normalizado
+from app.queries.actor import create_view_actor_movie, get_view_actor_movie
 router = APIRouter(
     prefix="/movies",
     tags=["Movies"]
