@@ -265,23 +265,170 @@ Explorar fácilmente la filmografía de un actor y su rol en distintas película
 
 ---
 
+¡Claro! Aquí tienes un ejemplo claro y paso a paso para tu README, explicando la parte de Proxies & Control de Red con la estructura de carpetas, qué hace cada archivo y cómo probar la rotación de IP y logs.
+
+---
+
+# Proxies & Control de Red (10%)
+
+Para garantizar la continuidad y efectividad del scraping evitando bloqueos por parte de los sitios objetivo, se implementó una estrategia robusta de gestión de red y control de IPs que incluye la integración de VPN mediante Docker y proxies rotativos.
+
+---
+
+## Estructura de la carpeta `vpn-client`
+
+```
+vpn-client
+├── auth.txt
+├── check_country.sh
+├── Dockerfile
+├── example.ovpn
+```
+
+* **auth.txt**: Archivo que contiene tus credenciales para autenticar la conexión VPN (usuario y contraseña).
+* **check\_country.sh**: Script que verifica que la IP pública actual del contenedor corresponde al país esperado usando una API pública.
+* **Dockerfile**: Define la imagen Docker que instala OpenVPN y configura el contenedor para conectarse a la VPN, además de ejecutar el healthcheck.
+* **example.ovpn**: Archivos de configuración OpenVPN para conectarse a diferentes servidores y países según el proveedor VPN.
+
+---
+
+## Descripción de los archivos clave
+
+### `auth.txt`
+
+Contiene las credenciales necesarias para la autenticación en el servidor VPN:
+
+```
+usuario_vpn
+contraseña_vpn
+```
+
+---
+
+### `check_country.sh`
+
+Script que se ejecuta periódicamente para validar que la IP pública dentro del contenedor corresponde al país configurado.
+
+```bash
+#!/bin/bash
+
+EXPECTED="Japan"
+IP=$(curl -s https://api.ipify.org)
+COUNTRY=$(curl -s https://ipapi.co/$IP/country_name/)
+
+if [[ "$COUNTRY" == "$EXPECTED" ]]; then
+    echo "✅ Connected to $COUNTRY ($IP)"
+    exit 0
+else
+    echo "❌ Connected to wrong country: $COUNTRY ($IP)"
+    exit 1
+fi
+```
+
+---
+
+### `Dockerfile`
+
+El Dockerfile crea una imagen basada en Ubuntu 20.04 con OpenVPN y herramientas necesarias instaladas, configura DNS para evitar problemas de resolución, copia los archivos de configuración y define el comando para iniciar OpenVPN con autenticación.
+
+```dockerfile
+FROM ubuntu:20.04
+
+RUN apt-get update && \
+    apt-get install -y openvpn curl iproute2 iputils-ping && \
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV OVPN_FILE=proton.ovpn
+
+COPY ${OVPN_FILE} /vpn-client/${OVPN_FILE}
+COPY auth.txt /vpn-client/auth.txt
+COPY check_country.sh /usr/local/bin/check_country.sh
+
+RUN chmod +x /usr/local/bin/check_country.sh
+
+CMD ["sh", "-c", "openvpn --config /vpn-client/${OVPN_FILE} --auth-user-pass /vpn-client/auth.txt"]
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD /usr/local/bin/check_country.sh
+```
+
+---
+
+## Cómo usarlo
+
+1. **Configura tus credenciales VPN en `auth.txt`.**
+
+2. **Elige o añade el archivo `.ovpn` correspondiente al país o servidor deseado.**
+
+3. **Construye la imagen Docker:**
+
+```bash
+docker build -t vpn-client .
+```
+
+4. **Ejecuta el contenedor con permisos para usar la VPN:**
+
+```bash
+docker run --cap-add=NET_ADMIN --device /dev/net/tun --name vpn-client vpn-client
+```
+
+5. **Verifica desde dentro del contenedor la IP pública y país:**
+
+```bash
+docker exec -it vpn-client curl https://api.ipify.org
+```
+
+---
+
 ## 🧠 Comparación Técnica: Scrapy vs Selenium vs Playwright
 
 ### ¿Cómo implementarías este scraper usando **Playwright** o **Selenium**?
 
-Aquí algunos puntos clave a considerar:
+### 1. **Configuración avanzada del navegador**
 
-* 🔧 **Configuración avanzada del navegador**
-  Puedes correr en modo `headless`, configurar `User-Agent`, `headers`, y técnicas para evadir la detección de automatización (`stealth`, `navigator.webdriver = false`, etc.).
+* En Scrapy usas headers HTTP muy completos que simulan un navegador real (User-Agent, sec-ch-ua, sec-fetch, etc.) para evitar bloqueos o detección.
+* En Playwright o Selenium, en vez de solo enviar headers, **configuras un navegador real (Chromium, Firefox, WebKit)** que automáticamente maneja la mayoría de esos headers y cookies de forma nativa, con mayor fidelidad.
+* Puedes **inyectar cookies explícitamente** antes de navegar para mantener sesiones o estados (igual que en Scrapy con `COOKIES`).
+* Además, puedes usar opciones como:
+  * `headless=True/False` para correr visible o no.
+  * Plugins o scripts para hacer stealth (ocultar `navigator.webdriver`, evitar detección de bots).
 
-* ⏳ **Selectores dinámicos y espera explícita**
-  A diferencia de Scrapy, con Selenium y Playwright puedes esperar a que los elementos se rendericen completamente con `wait_for_selector` o `WebDriverWait`.
+Esto da una ventaja sobre Scrapy porque no sólo "simulas" headers, sino que usas un navegador completo.
 
-* 🧩 **Soporte completo para JavaScript y CAPTCHA**
-  Si el sitio requiere ejecución de JS, login o tiene detección de bots, Selenium y Playwright permiten interactuar de manera visual (relleno de formularios, resolución de captchas con herramientas como 2Captcha o Playwright CAPTCHA plugin).
+---
 
-* ⚙️ **Control de concurrencia**
-  Puedes usar herramientas como `ThreadPoolExecutor`, `async` (en Playwright), o colas distribuidas como `Celery` para scraping masivo.
+### 2. **Selectores dinámicos y espera explícita**
+
+* Scrapy es rápido para páginas estáticas, pero con contenido dinámico (JS) puede fallar.
+* Con Playwright/Selenium puedes usar:
+
+  * `wait_for_selector(xpath)` o `WebDriverWait` para esperar hasta que los elementos estén cargados.
+  * Esto es crítico para páginas como IMDb que pueden tener elementos generados o scripts que modifican el DOM.
+
+Esto te permite manejar con precisión cuándo extraer los datos JSON que están en el XPath `//script[@type='application/ld+json']`.
+
+---
+
+### 3. **Soporte completo para JavaScript y CAPTCHA**
+
+* IMDb puede usar JavaScript para cargar información o protección anti-bots.
+* Con Playwright/Selenium puedes:
+  * Ejecutar scripts JS directamente.
+  * Interactuar con la página para hacer login, aceptar cookies, resolver captchas (usando servicios externos).
+* Esto no es posible solo con Scrapy y los headers, ya que Scrapy no ejecuta JS.
+
+---
+
+### 4. **Control de concurrencia**
+
+* Scrapy es muy eficiente para scraping concurrente nativo.
+* Playwright soporta concurrencia asincrónica (`async`), lo que permite lanzar varias instancias navegando simultáneamente.
+* Selenium puede usar `ThreadPoolExecutor` o procesos para concurrencia.
+* Para scraping masivo puedes combinar Playwright/Selenium con colas como Celery.
+
+Esto es útil si quieres escalar tu scraping más allá de un solo hilo o proceso.
+
+---
 
 ### 🟢 ¿Por qué usamos Scrapy?
 
