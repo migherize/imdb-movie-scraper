@@ -8,17 +8,18 @@ from imdb_movies.imdb_refine import CreatorOutputData
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from imdb_movies.models import Movie, Actor
+from imdb_movies.models_patterns.models import Movie, Actor
+
 class ImdbMoviesPipeline:
 
     def open_spider(self, spider: Spider):
         spider.logger.info('- Inicio del spider: %s', spider.name)
         self.items = []
         self.input_document_json_path = path.join(
-            ConfigImdb.DATA_PATH.value, ConfigImdb.output_document_name_page.value
+            ConfigImdb.DATA_PATH.value, ConfigImdb.OUTPUT_DOCUMENT_NAME_PAGE.value
         )
         self.output_document_json_path = path.join(
-            ConfigImdb.DATA_PATH.value, ConfigImdb.output_document_name_refine.value
+            ConfigImdb.DATA_PATH.value, ConfigImdb.OUTPUT_DOCUMENT_NAME_REFINE.value
         )
 
 
