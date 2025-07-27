@@ -3,7 +3,6 @@ from sqlalchemy.sql import text
 from typing import Optional
 
 
-
 def create_view_actor_movie(db: Session):
     query = text("""
         -- Vista que une películas y actores
