@@ -8,7 +8,8 @@ from sql_analysis.routers import movies
 app = FastAPI(
     title="IMDb Scraper API",
     version="1.0.0",
-    description="An API to serve IMDb scraping data and newsletter services."
+    description="An API to serve IMDb scraping data and newsletter services.",
+    lifespan=init_db
 )
 
 app.add_middleware(
@@ -18,10 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 @app.get("/")
 async def root():

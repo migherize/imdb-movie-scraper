@@ -7,7 +7,7 @@ class Movie(Base):
 
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
-    year = Column(Integer)
+    year = Column(Integer, index=True)
     rating = Column(Float)
     duration = Column(Integer)
     metascore = Column(Float)
@@ -19,7 +19,7 @@ class Actor(Base):
     __tablename__ = 'actors'
 
     id = Column(Integer, primary_key=True)
-    movie_id = Column(Integer, ForeignKey('movies.id'))
-    name = Column(String)
+    movie_id = Column(Integer, ForeignKey('movies.id'), index=True)
+    name = Column(String, index=True)
 
     movie = relationship("Movie", back_populates="actors")
