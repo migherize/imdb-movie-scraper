@@ -47,7 +47,7 @@ imdb_movie_scraper/
 
 ```bash
 git clone https://github.com/migherize/imdb-movie-scraper.git
-cd imdb-movie-scraper
+cd app/imdb-movie-scraper
 ```
 
 2. **Copia el archivo `.env`:**
@@ -371,7 +371,6 @@ Este proyecto incluye un conjunto de scripts para ejecutar análisis avanzados s
 Ejecuta los siguientes comandos desde la carpeta `scripts`:
 
 ```bash
-cd scripts
 python app/scripts/run_query.py -a get_top_movies_by_decade
 python app/scripts/run_query.py -a get_standard_deviation_rating
 python app/scripts/run_query.py -a get_metascore_and_imdb_rating_normalizado
