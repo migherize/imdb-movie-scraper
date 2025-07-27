@@ -1,4 +1,4 @@
-FROM python:3.10 AS BUILDER
+FROM python:3.11 AS BUILDER
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -6,7 +6,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
 
-FROM python:3.10-slim-buster AS IMAGE
+FROM python:3.11-slim AS IMAGE
 COPY --from=BUILDER /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/app:$PYTHONPATH
