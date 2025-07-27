@@ -32,12 +32,13 @@ imdb_movie_scraper/
 │   ├── routers
 │   ├── scripts
 │   └── utils
-└── start.sh
 ├── data
+├── vpn-client
 ├── docker-compose.db.yml
 ├── requirements.txt
 ├── runtime.txt
 ├── README.md
+└── start.sh
 ```
 
 ## 🚀 Instalación y Uso
@@ -46,7 +47,7 @@ imdb_movie_scraper/
 
 ```bash
 git clone https://github.com/migherize/imdb-movie-scraper.git
-cd imdb-movie-scraper
+cd app/imdb-movie-scraper
 ```
 
 2. **Copia el archivo `.env`:**
@@ -73,27 +74,51 @@ pip install -r requirements.txt
 
 ---
 
-### 🛢️ **Base de datos PostgreSQL (modo opcional)**
+### 🛢️ **Base de datos PostgreSQL (opcional, sin Docker)**
 
-Si deseas usar PostgreSQL localmente (sin Docker), puedes crear la base de datos y sus tablas ejecutando el script `app/utils/schema.sql` incluido en el proyecto.
+Si prefieres trabajar con PostgreSQL instalado localmente en lugar de Docker, puedes crear la base de datos y las tablas necesarias ejecutando el script `app/utils/schema.sql`.
 
-#### ✅ Pasos:
+#### ✅ Pasos para configurar la base de datos local:
 
-1. **Asegúrate de tener PostgreSQL instalado** y que el servicio esté en ejecución.
+1. **Instala PostgreSQL** (si no lo tienes):
 
-2. **Crea la base de datos manualmente** (si aún no existe):
+   En Debian/Ubuntu:
+
+   ```bash
+   sudo apt update && sudo apt install postgresql postgresql-contrib
+   ```
+
+   En macOS con Homebrew:
+
+   ```bash
+   brew install postgresql
+   brew services start postgresql
+   ```
+
+2. **Verifica que el servicio esté activo:**
+
+   ```bash
+   sudo service postgresql status    # Linux
+   brew services list                # macOS
+   ```
+
+3. **Crea la base de datos `imdb`:**
 
    ```bash
    createdb imdb
    ```
 
-3. **Ejecuta el script SQL para crear las tablas:**
+4. **Ejecuta el script SQL para crear las tablas:**
 
    ```bash
-   psql -h localhost -U tu_usuario -d imdb -f app/utils/schema.sql
+   psql -U postgres -d imdb -f $(pwd)/app/utils/schema.sql
    ```
 
-   > Reemplaza `tu_usuario` por tu nombre de usuario en PostgreSQL.
+   > 🔁 Si usas otro usuario distinto de `postgres`, reemplázalo por el tuyo (`-U tu_usuario`).
+   >
+   > 💡 Si te pide contraseña, es la de tu usuario PostgreSQL local.
+
+---
 
 #### 📄 ¿Qué incluye `schema.sql`?
 
@@ -106,11 +131,11 @@ Este archivo define la estructura base de la base de datos:
 
 ---
 
-### 🐳 Opción 2: Uso con Docker
+schema### 🐳 Opción 2: Uso con Docker
 
 Puedes levantar la base de datos y el servicio completo usando Docker.
 
-#### 1. Levantar la base de datos PostgreSQL:
+#### 2.1. Levantar la base de datos PostgreSQL:
 
 ```bash
 docker-compose -f docker-compose.db.yml up --build
@@ -120,17 +145,17 @@ Esto construirá y levantará el contenedor `imdb-movie-scraper-db-1` con Postgr
 
 ---
 
-#### 2. Copiar el archivo `schema.sql` al contenedor:
+#### 2.2. Copiar el archivo `schema.sql` al contenedor:
 
 ```bash
-docker cp PYTHONPATH/app/utils/schema.sql imdb-movie-scraper-db-1:/schema.sql
+docker cp $(pwd)/app/utils/schema.sql imdb-movie-scraper-db-1:/schema.sql
 ```
 
 > Asegúrate de ajustar la ruta al archivo según tu estructura local, si es necesario.
 
 ---
 
-#### 3. Acceder al contenedor:
+#### 2.3. Acceder al contenedor:
 
 ```bash
 docker exec -it imdb-movie-scraper-db-1 bash
@@ -138,7 +163,7 @@ docker exec -it imdb-movie-scraper-db-1 bash
 
 ---
 
-#### 4. Ejecutar el archivo `schema.sql` dentro del contenedor:
+#### 2.4. Ejecutar el archivo `schema.sql` dentro del contenedor:
 
 ```bash
 psql -h localhost -U user -d imdb -f schema.sql
@@ -186,12 +211,148 @@ Claro, aquí tienes la sección completada con una redacción clara, profesional
 
 ---
 
-## 🎬 Web Scraper: IMDB Movies
+# 🎬 IMDB Movies Scraper - Aplicación de Patrones de Diseño en Python
+
+## 📋 Descripción del Proyecto
+
+Este proyecto es un scraper robusto de películas de IMDB que implementa múltiples **patrones de diseño estructurales** para crear una arquitectura escalable, mantenible y tolerante a fallos.
+
+# Documentación del patrón Factory aplicado en `MovieFactory`
+
+## 📦 Clase `MovieFactory`
+
+La clase `MovieFactory` es una implementación concreta del **Factory Pattern** que se encarga de crear objetos del modelo `Movie` a partir de una estructura de datos tipo diccionario (normalmente una fila o registro extraído de un dataset).
+
+### Método principal
+
+```python
+@staticmethod
+def create_movie_from_row(row: dict) -> Movie:
+  title = str
+  year = int
+  rating = float
+  duration = int
+  metascore =float
+  actors_raw = str
+  return Movie(...)
+```
+
+* **Descripción**: Construye un objeto `Movie` mapeando las claves relevantes de un diccionario `row` hacia los atributos del modelo.
+* **Parámetros**:
+
+  * `row` (dict): Diccionario con datos de una película, con claves como `'title'`, `'date_published'`, `'rating'`, `'duration_minutes'`, `'metascore'`, `'actors'`.
+* **Retorna**:
+
+  * Una instancia de la clase `Movie`, con sus campos debidamente inicializados, incluyendo una lista de objetos `Actor` creada a partir del campo `'actors'`.
+
+### Detalles importantes de implementación
+
+* Extrae el año a partir de los primeros 4 caracteres de `'date_published'` si está presente.
+* Convierte los valores de rating, duración y metascore a tipos numéricos (`float` o `int`) con chequeos para manejar valores nulos.
+* Para el campo `'actors'`, que puede ser:
+
+  * Una lista ya construida,
+  * Un string con formato de lista (ej: `"['Actor 1', 'Actor 2']"`),
+  * O una cadena separada por `;` (ej: `"Actor 1; Actor 2"`),
+
+  se maneja la conversión segura a una lista de nombres para luego crear los objetos `Actor`.
+
+---
+
+### 1. 🏭 Factory Pattern aplicado en `MovieFactory`
+
+El patrón **Factory** se usa aquí para centralizar y encapsular la lógica de creación compleja de objetos `Movie`. Esto evita que el resto de la aplicación tenga que preocuparse por cómo interpretar o validar los datos de entrada.
+
+- **Ubicación**: `imdb_movies/imdb_movies/models_patterns/movie_factory.py`
+
+### Ventajas
+
+* **Encapsulamiento**: Toda la lógica de construcción está en un solo lugar.
+* **Reutilización**: Se puede reutilizar para crear objetos `Movie` desde distintas fuentes de datos sin duplicar código.
+* **Mantenibilidad**: Cambios en la forma de construir películas o actores sólo afectan esta clase.
+* **Robustez**: Maneja distintos formatos y casos de datos inconsistentes de forma controlada.
+
+---
+
+## Ejemplo de uso
+
+```python
+row = {
+    'title': 'Inception',
+    'date_published': '2010-07-16',
+    'rating': '8.8',
+    'duration_minutes': '148',
+    'metascore': '74',
+    'actors': "['Leonardo DiCaprio', 'Joseph Gordon-Levitt']"
+}
+
+movie = MovieFactory.create_movie_from_row(row)
+print(movie.title)  # 'Inception'
+print([actor.name for actor in movie.actors])  # ['Leonardo DiCaprio', 'Joseph Gordon-Levitt']
+```
+---
+
+### 2. 🎯 **Strategy Pattern**
+- **Ubicación**: `imdb_movies/imdb_movies/models_patterns/database_strategies.py`
+- **Propósito**: Permitir el intercambio dinámico de estrategias para la conexión a bases de datos, adaptándose a diferentes motores (PostgreSQL, SQLite, MySQL) sin cambiar el código cliente. Esto facilita la extensibilidad y el mantenimiento, y permite manejar diferentes configuraciones y fallos de conexión.
+- **Implementación**:
+  ```python
+  class DatabaseStrategy(ABC):
+      @abstractmethod
+      def get_connection_string(self) -> str: pass
+      
+      @abstractmethod  
+      def get_session(self) -> Session: pass
+  ```
+- **Estrategias Disponibles**:
+  - `PostgreSQLStrategy`
+  - `MySQLStrategy`
+  - `SQLiteStrategy`
+- **Beneficios**:
+  - Permite cambiar algoritmos de conexión en tiempo de ejecución
+  - Facilita testing con diferentes bases de datos
+  - Implementa fallback automático (PostgreSQL → SQLite)
+
+## 🛡️ Sistema de Manejo de Errores Robusto
+
+### Características Implementadas:
+
+#### 1. **Categorización de Errores**
+```python
+class ErrorType(Enum):
+    NETWORK_ERROR = "network_error"
+    DATABASE_ERROR = "database_error"
+    DATA_VALIDATION_ERROR = "data_validation_error"
+    FILE_IO_ERROR = "file_io_error"
+    PARSING_ERROR = "parsing_error"
+```
+
+#### 2. **Reintentos con Backoff Exponencial**
+```python
+@retry_with_backoff(
+    config=RetryConfig(max_retries=3, base_delay=2.0),
+    retry_on=(SQLAlchemyError, DisconnectionError)
+)
+def critical_operation(self):
+    # Operación crítica con reintentos automáticos
+```
+
+# Ejecucion
 
 Para poblar la base de datos con información de películas y actores:
-
 ```bash
 cd imdb_scraper
+
+# Solo extracción
+scrapy crawl imdb_movies_spider -a refine=0
+
+# Refinado
+scrapy crawl imdb_movies_spider -a refine=1
+
+# Extracción y refinado
+scrapy crawl imdb_movies_spider -a refine=2
+
+# Por defecto es refine=2. Se puede ejecutar:
 scrapy crawl imdb_movies_spider
 ```
 
@@ -210,7 +371,6 @@ Este proyecto incluye un conjunto de scripts para ejecutar análisis avanzados s
 Ejecuta los siguientes comandos desde la carpeta `scripts`:
 
 ```bash
-cd scripts
 python app/scripts/run_query.py -a get_top_movies_by_decade
 python app/scripts/run_query.py -a get_standard_deviation_rating
 python app/scripts/run_query.py -a get_metascore_and_imdb_rating_normalizado
@@ -368,7 +528,7 @@ RUN apt-get update && \
     echo "nameserver 1.1.1.1" > /etc/resolv.conf && \
     rm -rf /var/lib/apt/lists/*
 
-ENV OVPN_FILE=proton.ovpn
+ENV OVPN_FILE=example.ovpn
 
 COPY ${OVPN_FILE} /vpn-client/${OVPN_FILE}
 COPY auth.txt /vpn-client/auth.txt

@@ -1,163 +1,90 @@
+import os
+import logging
 from abc import ABC, abstractmethod
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError, DisconnectionError
 from imdb_movies.enum_model import ConfigDB
-from imdb_movies.error_handlers import ErrorHandler, ErrorType, retry_with_backoff, RetryConfig
-import os
-import logging
-from typing import Optional
+from imdb_movies.models_patterns.models import Base
+from imdb_movies.models_patterns.error_handlers import ErrorHandler, ErrorType, retry_with_backoff, RetryConfig
 
 
 class DatabaseStrategy(ABC):
-    """Interfaz abstracta para estrategias de base de datos - Strategy Pattern con manejo de errores"""
-    
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None, **kwargs):
         self.logger = logger or logging.getLogger(__name__)
-        self.error_handler = ErrorHandler(self.logger)
         self.engine = None
         self.SessionLocal = None
         self._connection_validated = False
-    
+        self.error_handler = ErrorHandler(self.logger)
+
     @abstractmethod
     def get_connection_string(self) -> str:
-        """Retorna la cadena de conexión a la base de datos"""
         pass
-    
+
     @abstractmethod
-    def get_session(self) -> Session:
-        """Retorna una sesión de base de datos"""
+    def _initialize_engine_safe(self):
         pass
-    
+
+    def get_session(self) -> Session:
+        if not self.SessionLocal:
+            self._initialize_engine_safe()
+        return self.SessionLocal()
+
     def validate_connection(self) -> bool:
-        """Valida la conexión a la base de datos"""
         try:
-            test_session = self.get_session()
-            test_session.execute(text("SELECT 1"))
-            test_session.close()
+            session = self.get_session()
+            session.execute(text("SELECT * from movies LIMIT 1"))
+            session.close()
             self._connection_validated = True
-            self.logger.info("✅ Conexión a base de datos validada exitosamente")
+            self.logger.info("✅ Conexión validada correctamente")
             return True
         except Exception as e:
-            self.error_handler.handle_error(
-                e, ErrorType.DATABASE_ERROR, 
-                "Validando conexión a base de datos"
-            )
+            self.logger.error(f"❌ Error validando conexión: {e}")
             self._connection_validated = False
             return False
-    
+
     def is_connection_valid(self) -> bool:
-        """Retorna si la conexión fue validada"""
         return self._connection_validated
-    
+
     def create_tables_if_not_exist(self):
-        """Crea las tablas si no existen"""
         try:
-            from imdb_movies.models import Base
             Base.metadata.create_all(bind=self.engine)
-            self.logger.info("✅ Tablas de base de datos verificadas/creadas")
+            self.logger.info("✅ Tablas verificadas/creadas correctamente")
         except Exception as e:
-            self.error_handler.handle_error(
-                e, ErrorType.DATABASE_ERROR, 
-                "Creando tablas de base de datos"
-            )
-
-
+            self.logger.error(f"❌ Error creando tablas: {e}")
+            raise
 class PostgreSQLStrategy(DatabaseStrategy):
-    """Estrategia para base de datos PostgreSQL con manejo robusto de errores"""
-    
-    def __init__(self, logger: logging.Logger = None):
-        super().__init__(logger)
+
+    def __init__(self, logger=None, **kwargs):
+        super().__init__(logger, **kwargs)
         self._initialize_engine_safe()
 
     def get_connection_string(self) -> str:
-        """Construye la cadena de conexión para PostgreSQL con validación"""
-        try:
-            db = ConfigDB.DB.value
-            user = ConfigDB.USERDB.value
-            password = ConfigDB.PASSWORDDB.value
-            host = ConfigDB.NAME_SERVICEDB.value
-            port = ConfigDB.PORT.value
-            database = ConfigDB.NAMEDB.value
-            
-            # Validar parámetros requeridos
-            required_params = {
-                'db': db, 'user': user, 'password': password,
-                'host': host, 'port': port, 'database': database
-            }
-            
-            missing_params = [k for k, v in required_params.items() if not v]
-            if missing_params:
-                raise ValueError(f"Parámetros de conexión PostgreSQL faltantes: {missing_params}")
-            
-            connection_string = f"{db}://{user}:{password}@{host}:{port}/{database}"
-            
-            # Log de conexión (sin mostrar password)
-            safe_string = f"{db}://{user}:***@{host}:{port}/{database}"
-            self.logger.debug(f"🔗 Cadena de conexión PostgreSQL: {safe_string}")
-            
-            return connection_string
-            
-        except Exception as e:
-            self.error_handler.handle_error(
-                e, ErrorType.DATABASE_ERROR, 
-                "Construyendo cadena de conexión PostgreSQL"
-            )
-            raise
+        db = ConfigDB.DB.value
+        user = ConfigDB.USERDB.value
+        password = ConfigDB.PASSWORDDB.value
+        host = ConfigDB.NAME_SERVICEDB.value
+        port = ConfigDB.PORT.value
+        database = ConfigDB.NAMEDB.value
+
+        return f"{db}://{user}:{password}@{host}:{port}/{database}"
 
     @retry_with_backoff(
         config=RetryConfig(max_retries=3, base_delay=2.0),
         retry_on=(SQLAlchemyError, DisconnectionError)
     )
     def _initialize_engine_safe(self):
-        """Inicializa el engine de SQLAlchemy de forma segura"""
-        try:
-            connection_string = self.get_connection_string()
-            
-            # Configuraciones adicionales para PostgreSQL
-            engine_config = {
-                'pool_size': 5,
-                'max_overflow': 10,
-                'pool_timeout': 30,
-                'pool_recycle': 3600,
-                'echo': False  # Cambiar a True para debug SQL
-            }
-            
-            self.engine = create_engine(connection_string, **engine_config)
-            self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-            
-            self.logger.info("🐘 Engine PostgreSQL inicializado exitosamente")
-            
-        except Exception as e:
-            self.error_handler.handle_error(
-                e, ErrorType.DATABASE_ERROR, 
-                "Inicializando engine PostgreSQL", 
-                fatal=True
-            )
-            raise
-
-    @retry_with_backoff(
-        config=RetryConfig(max_retries=2, base_delay=1.0),
-        retry_on=(SQLAlchemyError,)
-    )
-    def get_session(self) -> Session:
-        """Retorna una nueva sesión de PostgreSQL con validación"""
-        if not self.SessionLocal:
-            raise RuntimeError("Engine PostgreSQL no inicializado")
-        
-        try:
-            session = self.SessionLocal()
-            # Validar sesión con query simple
-            session.execute(text("SELECT version()"))
-            return session
-        except Exception as e:
-            self.error_handler.handle_error(
-                e, ErrorType.DATABASE_ERROR, 
-                "Creando sesión PostgreSQL"
-            )
-            raise
-
-
+        connection_string = self.get_connection_string()
+        engine_config = {
+            'pool_size': 5,
+            'max_overflow': 10,
+            'pool_timeout': 30,
+            'pool_recycle': 3600,
+            'echo': False
+        }
+        self.engine = create_engine(connection_string, **engine_config)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.logger.info("🐘 Engine PostgreSQL inicializado correctamente")
 class SQLiteStrategy(DatabaseStrategy):
     """Estrategia para base de datos SQLite con manejo robusto de errores"""
     
@@ -340,111 +267,26 @@ class MySQLStrategy(DatabaseStrategy):
 
 
 class DatabaseStrategyFactory:
-    """Factory mejorado para crear estrategias de base de datos con validación"""
-    
     _strategies = {
         'postgresql': PostgreSQLStrategy,
         'sqlite': SQLiteStrategy,
         'mysql': MySQLStrategy
     }
-    
+
     @classmethod
     def create_strategy(cls, db_type: str, logger: logging.Logger = None, **kwargs) -> DatabaseStrategy:
-        """Crea una estrategia de base de datos con validación mejorada"""
         if db_type not in cls._strategies:
             available = ', '.join(cls._strategies.keys())
             raise ValueError(f"Tipo de base de datos no soportado: {db_type}. Disponibles: {available}")
-        
+
         strategy_class = cls._strategies[db_type]
-        
-        try:
-            # Crear estrategia con parámetros específicos
-            if db_type == 'sqlite':
-                db_path = kwargs.get('db_path', 'imdb_movies.db')
-                strategy = strategy_class(db_path, logger)
-            else:
-                strategy = strategy_class(logger)
-            
-            # Validar conexión
-            if not strategy.validate_connection():
-                raise RuntimeError(f"No se pudo validar conexión para {db_type}")
-            
-            # Crear tablas si no existen
-            strategy.create_tables_if_not_exist()
-            
-            if logger:
-                logger.info(f"✅ Estrategia {db_type} creada y validada exitosamente")
-            
-            return strategy
-            
-        except Exception as e:
-            if logger:
-                logger.error(f"❌ Error creando estrategia {db_type}: {e}")
-            raise
-    
-    @classmethod
-    def get_available_strategies(cls) -> list:
-        """Retorna la lista de estrategias de base de datos disponibles"""
-        return list(cls._strategies.keys())
-    
-    @classmethod
-    def create_default_strategy(cls, logger: logging.Logger = None) -> DatabaseStrategy:
-        """Crea la estrategia de base de datos por defecto con fallback inteligente"""
-        db_type = getattr(ConfigDB.DB, 'value', None)
-        
-        # Intentar determinar tipo de BD desde configuración
-        if db_type and 'postgresql' in db_type.lower():
-            return cls._try_create_with_fallback('postgresql', logger)
-        elif db_type and 'sqlite' in db_type.lower():
-            return cls._try_create_with_fallback('sqlite', logger)
-        elif db_type and 'mysql' in db_type.lower():
-            return cls._try_create_with_fallback('mysql', logger)
-        else:
-            # Fallback inteligente: PostgreSQL -> SQLite
-            return cls._try_create_with_fallback('postgresql', logger, fallback='sqlite')
-    
-    @classmethod
-    def _try_create_with_fallback(cls, 
-                                  primary: str, 
-                                  logger: logging.Logger = None, 
-                                  fallback: str = 'sqlite') -> DatabaseStrategy:
-        """Intenta crear estrategia primaria, si falla usa fallback"""
-        try:
-            return cls.create_strategy(primary, logger)
-        except Exception as e:
-            if logger:
-                logger.warning(f"⚠️ Estrategia {primary} falló: {e}")
-            
-            if fallback and fallback != primary:
-                try:
-                    if logger:
-                        logger.info(f"🔄 Intentando fallback a {fallback}")
-                    return cls.create_strategy(fallback, logger)
-                except Exception as fallback_error:
-                    if logger:
-                        logger.error(f"❌ Fallback {fallback} también falló: {fallback_error}")
-                    raise fallback_error
-            else:
-                raise e
-    
-    @classmethod
-    def test_all_strategies(cls, logger: logging.Logger = None) -> dict:
-        """Prueba todas las estrategias disponibles y retorna su estado"""
-        results = {}
-        
-        for strategy_name in cls._strategies.keys():
-            try:
-                strategy = cls.create_strategy(strategy_name, logger)
-                results[strategy_name] = {
-                    'status': 'success',
-                    'connection_valid': strategy.is_connection_valid(),
-                    'message': 'Estrategia creada y validada exitosamente'
-                }
-            except Exception as e:
-                results[strategy_name] = {
-                    'status': 'failed',
-                    'connection_valid': False,
-                    'message': str(e)
-                }
-        
-        return results 
+        strategy = strategy_class(logger=logger, **kwargs)
+
+        if not strategy.validate_connection():
+            raise RuntimeError(f"No se pudo validar conexión para {db_type}")
+
+        strategy.create_tables_if_not_exist()
+        if logger:
+            logger.info(f"✅ Estrategia {db_type} creada y validada exitosamente")
+
+        return strategy
