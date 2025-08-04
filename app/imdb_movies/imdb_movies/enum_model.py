@@ -11,7 +11,7 @@ class ConfigDB(Enum):
     USERDB = os.getenv("USERDB")
     PASSWORDDB = os.getenv("PASSWORDDB")
     NAME_SERVICEDB = os.getenv("NAME_SERVICEDB")
-    PORT = os.getenv("PORT")
+    PORT = os.getenv("PORT_DB")
     NAMEDB = os.getenv("NAMEDB")
     DATABASE_URL = f"{DB}://{USERDB}:{PASSWORDDB}@{NAME_SERVICEDB}:{PORT}/{NAMEDB}"
 

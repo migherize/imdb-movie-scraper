@@ -2,12 +2,14 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.db.database import init_db
+from app.routers import movies
 
 app = FastAPI(
     title="IMDb Scraper API",
     version="1.0.0",
-    description="An API to serve IMDb scraping data and newsletter services."
+    description="An API to serve IMDb scraping data and newsletter services.",
+    lifespan=init_db
 )
 
 app.add_middleware(
@@ -18,8 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/", tags=["Root"])
+@app.get("/")
 async def root():
     """
     Classic FastAPI welcome page.
@@ -27,9 +28,11 @@ async def root():
     return {"page": "home", "Version": "1.0", "Update Date": "Jul 26 2025"}
 
 
+app.include_router(movies.router)
+
 if __name__ == "__main__":
     uvicorn.run(
-        "sql_analysis.main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
