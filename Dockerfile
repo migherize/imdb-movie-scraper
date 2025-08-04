@@ -1,19 +1,22 @@
-FROM python:3.11 AS BUILDER
+# Etapa de build
+FROM python:3.11 AS builder
 
+# Crear entorno virtual
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt requirements.txt
-RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
+# Instalar dependencias
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-FROM python:3.11-slim AS IMAGE
-COPY --from=BUILDER /opt/venv /opt/venv
+# Etapa final
+FROM python:3.11-slim
+
+COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 COPY ./app /app
 
-# ENTRYPOINT ["tail", "-f", "/dev/null"]
-CMD /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
-# CMD fastapi dev src/main.py --host 0.0.0.0 --port 8080
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

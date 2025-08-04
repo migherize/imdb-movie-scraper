@@ -19,12 +19,10 @@ services:
       - "8080:8080"
 
     environment:
-      - PYTHONPATH=/app:$PYTHONPATH
-      - LOGS=/app/logs
-      - DATA=/app/data
-      - DB=postgresql
-      - NAMEDB=imdb
-      - USERDB=user
-      - PASSWORDDB=password
-      - PORT=5432
-      - NAME_SERVICEDB=db  # O "localhost" si estás ejecutando sin servicio de base de datos en Docker
+      - PYTHONPATH=${PYTHONPATH:-./app}
+      - DB=${DB:-postgresql}
+      - NAMEDB=${NAMEDB:-imdb_tv6k}
+      - USERDB=${USERDB:-user}
+      - PASSWORDDB=${PASSWORDDB:-Mj7Q17R6TY617bYkMa8mah8ZWvnB0LOw}
+      - NAME_SERVICEDB=${NAME_SERVICEDB:-dpg-d22hvlumcj7s738ilm00-a.oregon-postgres.render.com}
+      - PORT=${PORT:-5432}
