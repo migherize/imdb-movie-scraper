@@ -8,15 +8,15 @@ services:
       context: .
       dockerfile: Dockerfile
     expose:
-      - 8080
+      - 8000
 
-    volumes:
-      - "./:/app"
-      - "./data/:/app/data"
-      - "./logs/:/app/logs"
+    # volumes:
+    #   - "./:/app"
+    #   - "./data/:/app/data"
+    #   - "./logs/:/app/logs"
 
     ports:
-      - "8080:8080"
+      - "8000:8000"
 
     environment:
       - PYTHONPATH=${PYTHONPATH:-./app}

@@ -16,7 +16,9 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
-COPY ./app /app
+WORKDIR /imdb_movie_scraper
+COPY ./app /imdb_movie_scraper/app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# CMD ["ls", "-R", "/app"]
+# CMD ["fastapi", "dev", "app/main.py"]
